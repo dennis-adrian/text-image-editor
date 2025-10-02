@@ -1,581 +1,659 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import {useState, useRef, useEffect} from "react"
-import {Button} from "@/components/ui/button"
-import {Input} from "@/components/ui/input"
-import {Label} from "@/components/ui/label"
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card"
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select"
-import {Slider} from "@/components/ui/slider"
-import {Textarea} from "@/components/ui/textarea"
-import {Upload, Download, Type, DownloadCloud, AlignLeft, AlignCenter, AlignRight} from "lucide-react"
+import { useState, useRef, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Upload,
+  Download,
+  Type,
+  DownloadCloud,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+} from "lucide-react";
 
 export default function ImageTextEditor() {
-    const [image, setImage] = useState<HTMLImageElement | null>(null)
-    const [textArray, setTextArray] = useState<string[]>(["Your Text Here"])
-    const [textInput, setTextInput] = useState("Your Text Here")
-    const [textX, setTextX] = useState(50)
-    const [textY, setTextY] = useState(50)
-    const [textBoxWidth, setTextBoxWidth] = useState(80)
-    const [textBoxHeight, setTextBoxHeight] = useState(20)
-    const [textColor, setTextColor] = useState("#ffffff")
-    const [fontFamily, setFontFamily] = useState("Arial")
-    const [textAlign, setTextAlign] = useState<"left" | "center" | "right">("left")
-    const [generatedImages, setGeneratedImages] = useState<HTMLCanvasElement[]>([])
-    const [isDragging, setIsDragging] = useState(false)
-    const [dragStartPos, setDragStartPos] = useState({x: 0, y: 0})
-    const [dragStartTextPos, setDragStartTextPos] = useState({x: 0, y: 0})
+  const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const [textArray, setTextArray] = useState<string[]>(["Your Text Here"]);
+  const [textInput, setTextInput] = useState("Your Text Here");
+  const [textX, setTextX] = useState(50);
+  const [textY, setTextY] = useState(50);
+  const [textBoxWidth, setTextBoxWidth] = useState(80);
+  const [textBoxHeight, setTextBoxHeight] = useState(20);
+  const [textColor, setTextColor] = useState("#ffffff");
+  const [fontFamily, setFontFamily] = useState("Arial");
+  const [textAlign, setTextAlign] = useState<"left" | "center" | "right">(
+    "left",
+  );
+  const [generatedImages, setGeneratedImages] = useState<HTMLCanvasElement[]>(
+    [],
+  );
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
+  const [dragStartTextPos, setDragStartTextPos] = useState({ x: 0, y: 0 });
 
-    const fileInputRef = useRef<HTMLInputElement>(null)
-    const previewCanvasRef = useRef<HTMLCanvasElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
 
-    const wrapText = (
-        ctx: CanvasRenderingContext2D,
-        text: string,
-        maxWidth: number,
-        fontSize: number,
-        fontFamily: string,
-    ): string[] => {
-        ctx.font = `${fontSize}px ${fontFamily}`
-        const words = text.split(" ")
-        const lines: string[] = []
-        let currentLine = ""
+  const wrapText = (
+    ctx: CanvasRenderingContext2D,
+    text: string,
+    maxWidth: number,
+    fontSize: number,
+    fontFamily: string,
+  ): string[] => {
+    ctx.font = `${fontSize}px ${fontFamily}`;
+    const words = text.split(" ");
+    const lines: string[] = [];
+    let currentLine = "";
 
-        for (const word of words) {
-            const testLine = currentLine ? `${currentLine} ${word}` : word
-            const metrics = ctx.measureText(testLine)
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const metrics = ctx.measureText(testLine);
 
-            if (metrics.width > maxWidth && currentLine) {
-                lines.push(currentLine)
-                currentLine = word
-            } else {
-                currentLine = testLine
-            }
-        }
-
-        if (currentLine) {
-            lines.push(currentLine)
-        }
-
-        return lines
+      if (metrics.width > maxWidth && currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
     }
 
-    const calculateOptimalFontSize = (
-        ctx: CanvasRenderingContext2D,
-        text: string,
-        maxWidth: number,
-        maxHeight: number,
-        fontFamily: string,
-        minSize = 12,
-        maxSize = 200,
-    ): { fontSize: number; lines: string[] } => {
-        let fontSize = maxSize
-
-        while (fontSize > minSize) {
-            ctx.font = `${fontSize}px ${fontFamily}`
-            const lines = wrapText(ctx, text, maxWidth, fontSize, fontFamily)
-            const lineHeight = fontSize * 1.2
-            const totalHeight = lines.length * lineHeight
-
-            if (totalHeight <= maxHeight) {
-                return {fontSize, lines}
-            }
-
-            fontSize -= 2
-        }
-
-        const lines = wrapText(ctx, text, maxWidth, minSize, fontFamily)
-        return {fontSize: minSize, lines}
+    if (currentLine) {
+      lines.push(currentLine);
     }
 
-    const drawTextInBox = (
-        ctx: CanvasRenderingContext2D,
-        text: string,
-        x: number,
-        y: number,
-        boxWidth: number,
-        boxHeight: number,
-        showBox = false,
-    ) => {
-        const {fontSize, lines} = calculateOptimalFontSize(ctx, text, boxWidth, boxHeight, fontFamily)
+    return lines;
+  };
 
-        if (showBox) {
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.5)"
-            ctx.lineWidth = 2
-            ctx.setLineDash([5, 5])
-            ctx.strokeRect(x, y, boxWidth, boxHeight)
-            ctx.setLineDash([])
-        }
+  const calculateOptimalFontSize = (
+    ctx: CanvasRenderingContext2D,
+    text: string,
+    maxWidth: number,
+    maxHeight: number,
+    fontFamily: string,
+    minSize = 12,
+    maxSize = 200,
+  ): { fontSize: number; lines: string[] } => {
+    let fontSize = maxSize;
 
-        ctx.font = `${fontSize}px ${fontFamily}`
-        ctx.fillStyle = textColor
-        ctx.textBaseline = "top"
-        ctx.textAlign = textAlign
+    while (fontSize > minSize) {
+      ctx.font = `${fontSize}px ${fontFamily}`;
+      const lines = wrapText(ctx, text, maxWidth, fontSize, fontFamily);
+      const lineHeight = fontSize * 1.2;
+      const totalHeight = lines.length * lineHeight;
 
-        ctx.shadowColor = "rgba(0, 0, 0, 0.5)"
-        ctx.shadowBlur = 4
-        ctx.shadowOffsetX = 2
-        ctx.shadowOffsetY = 2
+      if (totalHeight <= maxHeight) {
+        return { fontSize, lines };
+      }
 
-        const lineHeight = fontSize * 1.2
-
-        lines.forEach((line, index) => {
-            let lineX = x
-            if (textAlign === "center") {
-                lineX = x + boxWidth / 2
-            } else if (textAlign === "right") {
-                lineX = x + boxWidth
-            }
-
-            ctx.fillText(line, lineX, y + index * lineHeight)
-        })
-
-        ctx.shadowColor = "transparent"
-        ctx.shadowBlur = 0
-        ctx.shadowOffsetX = 0
-        ctx.shadowOffsetY = 0
+      fontSize -= 2;
     }
 
-    useEffect(() => {
-        if (!image || textArray.length === 0) {
-            setGeneratedImages([])
-            return
-        }
+    const lines = wrapText(ctx, text, maxWidth, minSize, fontFamily);
+    return { fontSize: minSize, lines };
+  };
 
-        const canvases: HTMLCanvasElement[] = []
+  const drawTextInBox = (
+    ctx: CanvasRenderingContext2D,
+    text: string,
+    x: number,
+    y: number,
+    boxWidth: number,
+    boxHeight: number,
+    showBox = false,
+  ) => {
+    const { fontSize, lines } = calculateOptimalFontSize(
+      ctx,
+      text,
+      boxWidth,
+      boxHeight,
+      fontFamily,
+    );
 
-        textArray.forEach((text) => {
-            const canvas = document.createElement("canvas")
-            const ctx = canvas.getContext("2d")
-            if (!ctx) return
-
-            canvas.width = image.width
-            canvas.height = image.height
-
-            ctx.drawImage(image, 0, 0)
-
-            const boxWidthPx = (textBoxWidth / 100) * canvas.width
-            const boxHeightPx = (textBoxHeight / 100) * canvas.height
-            const x = (textX / 100) * canvas.width
-            const y = (textY / 100) * canvas.height
-
-            drawTextInBox(ctx, text, x, y, boxWidthPx, boxHeightPx, false)
-
-            canvases.push(canvas)
-        })
-
-        setGeneratedImages(canvases)
-    }, [image, textArray, textX, textY, textBoxWidth, textBoxHeight, textColor, fontFamily, textAlign])
-
-    useEffect(() => {
-        if (!image || !previewCanvasRef.current) return
-
-        const canvas = previewCanvasRef.current
-        const ctx = canvas.getContext("2d")
-        if (!ctx) return
-
-        canvas.width = image.width
-        canvas.height = image.height
-
-        ctx.drawImage(image, 0, 0)
-
-        const boxWidthPx = (textBoxWidth / 100) * canvas.width
-        const boxHeightPx = (textBoxHeight / 100) * canvas.height
-        const x = (textX / 100) * canvas.width
-        const y = (textY / 100) * canvas.height
-        const text = textArray[0] || ""
-
-        drawTextInBox(ctx, text, x, y, boxWidthPx, boxHeightPx, true)
-    }, [image, textArray, textX, textY, textBoxWidth, textBoxHeight, textColor, fontFamily, textAlign])
-
-    const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-        const canvas = previewCanvasRef.current
-        if (!canvas) return
-
-        const rect = canvas.getBoundingClientRect()
-        const scaleX = canvas.width / rect.width
-        const scaleY = canvas.height / rect.height
-
-        const mouseX = (e.clientX - rect.left) * scaleX
-        const mouseY = (e.clientY - rect.top) * scaleY
-
-        setIsDragging(true)
-        setDragStartPos({x: mouseX, y: mouseY})
-        setDragStartTextPos({x: textX, y: textY})
+    if (showBox) {
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.strokeRect(x, y, boxWidth, boxHeight);
+      ctx.setLineDash([]);
     }
 
-    const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-        if (!isDragging) return
+    ctx.font = `${fontSize}px ${fontFamily}`;
+    ctx.fillStyle = textColor;
+    ctx.textBaseline = "top";
+    ctx.textAlign = textAlign;
 
-        const canvas = previewCanvasRef.current
-        if (!canvas) return
+    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
 
-        const rect = canvas.getBoundingClientRect()
-        const scaleX = canvas.width / rect.width
-        const scaleY = canvas.height / rect.height
+    const lineHeight = fontSize * 1.2;
 
-        const mouseX = (e.clientX - rect.left) * scaleX
-        const mouseY = (e.clientY - rect.top) * scaleY
+    lines.forEach((line, index) => {
+      let lineX = x;
+      if (textAlign === "center") {
+        lineX = x + boxWidth / 2;
+      } else if (textAlign === "right") {
+        lineX = x + boxWidth;
+      }
 
-        const deltaX = mouseX - dragStartPos.x
-        const deltaY = mouseY - dragStartPos.y
+      ctx.fillText(line, lineX, y + index * lineHeight);
+    });
 
-        const newX = dragStartTextPos.x + (deltaX / canvas.width) * 100
-        const newY = dragStartTextPos.y + (deltaY / canvas.height) * 100
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+  };
 
-        setTextX(Math.max(0, Math.min(100, newX)))
-        setTextY(Math.max(0, Math.min(100, newY)))
+  useEffect(() => {
+    if (!image || textArray.length === 0) {
+      setGeneratedImages([]);
+      return;
     }
 
-    const handleMouseUp = () => {
-        setIsDragging(false)
+    const canvases: HTMLCanvasElement[] = [];
+
+    textArray.forEach((text) => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      canvas.width = image.width;
+      canvas.height = image.height;
+
+      ctx.drawImage(image, 0, 0);
+
+      const boxWidthPx = (textBoxWidth / 100) * canvas.width;
+      const boxHeightPx = (textBoxHeight / 100) * canvas.height;
+      const x = (textX / 100) * canvas.width;
+      const y = (textY / 100) * canvas.height;
+
+      drawTextInBox(ctx, text, x, y, boxWidthPx, boxHeightPx, false);
+
+      canvases.push(canvas);
+    });
+
+    setGeneratedImages(canvases);
+  }, [
+    image,
+    textArray,
+    textX,
+    textY,
+    textBoxWidth,
+    textBoxHeight,
+    textColor,
+    fontFamily,
+    textAlign,
+  ]);
+
+  useEffect(() => {
+    if (!image || !previewCanvasRef.current) return;
+
+    const canvas = previewCanvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    canvas.width = image.width;
+    canvas.height = image.height;
+
+    ctx.drawImage(image, 0, 0);
+
+    const boxWidthPx = (textBoxWidth / 100) * canvas.width;
+    const boxHeightPx = (textBoxHeight / 100) * canvas.height;
+    const x = (textX / 100) * canvas.width;
+    const y = (textY / 100) * canvas.height;
+    const text = textArray[0] || "";
+
+    drawTextInBox(ctx, text, x, y, boxWidthPx, boxHeightPx, true);
+  }, [
+    image,
+    textArray,
+    textX,
+    textY,
+    textBoxWidth,
+    textBoxHeight,
+    textColor,
+    fontFamily,
+    textAlign,
+  ]);
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = previewCanvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    const mouseX = (e.clientX - rect.left) * scaleX;
+    const mouseY = (e.clientY - rect.top) * scaleY;
+
+    setIsDragging(true);
+    setDragStartPos({ x: mouseX, y: mouseY });
+    setDragStartTextPos({ x: textX, y: textY });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDragging) return;
+
+    const canvas = previewCanvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    const mouseX = (e.clientX - rect.left) * scaleX;
+    const mouseY = (e.clientY - rect.top) * scaleY;
+
+    const deltaX = mouseX - dragStartPos.x;
+    const deltaY = mouseY - dragStartPos.y;
+
+    const newX = dragStartTextPos.x + (deltaX / canvas.width) * 100;
+    const newY = dragStartTextPos.y + (deltaY / canvas.height) * 100;
+
+    setTextX(Math.max(0, Math.min(100, newX)));
+    setTextY(Math.max(0, Math.min(100, newY)));
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        setImage(img);
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleTextInputChange = (value: string) => {
+    setTextInput(value);
+    const lines = value.split("\n").filter((line) => line.trim() !== "");
+    setTextArray(lines.length > 0 ? lines : [""]);
+  };
+
+  const handleXPositionChange = (value: string) => {
+    const numValue = Number.parseFloat(value);
+    if (!isNaN(numValue)) {
+      setTextX(Math.max(0, Math.min(100, numValue)));
     }
+  };
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (!file) return
-
-        const reader = new FileReader()
-        reader.onload = (event) => {
-            const img = new Image()
-            img.crossOrigin = "anonymous"
-            img.onload = () => {
-                setImage(img)
-            }
-            img.src = event.target?.result as string
-        }
-        reader.readAsDataURL(file)
+  const handleYPositionChange = (value: string) => {
+    const numValue = Number.parseFloat(value);
+    if (!isNaN(numValue)) {
+      setTextY(Math.max(0, Math.min(100, numValue)));
     }
+  };
 
-    const handleTextInputChange = (value: string) => {
-        setTextInput(value)
-        const lines = value.split("\n").filter((line) => line.trim() !== "")
-        setTextArray(lines.length > 0 ? lines : [""])
-    }
+  const handleDownloadSingle = (canvas: HTMLCanvasElement, index: number) => {
+    canvas.toBlob((blob) => {
+      if (!blob) return;
 
-    const handleXPositionChange = (value: string) => {
-        const numValue = Number.parseFloat(value)
-        if (!isNaN(numValue)) {
-            setTextX(Math.max(0, Math.min(100, numValue)))
-        }
-    }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `edited-image-${index + 1}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  };
 
-    const handleYPositionChange = (value: string) => {
-        const numValue = Number.parseFloat(value)
-        if (!isNaN(numValue)) {
-            setTextY(Math.max(0, Math.min(100, numValue)))
-        }
-    }
+  const handleDownloadAll = () => {
+    generatedImages.forEach((canvas, index) => {
+      setTimeout(() => {
+        handleDownloadSingle(canvas, index);
+      }, index * 200);
+    });
+  };
 
-    const handleDownloadSingle = (canvas: HTMLCanvasElement, index: number) => {
-        canvas.toBlob((blob) => {
-            if (!blob) return
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="mb-8 text-center">
+        <h1 className="text-4xl font-bold mb-2 text-foreground">
+          Image Text Editor
+        </h1>
+        <p className="text-muted-foreground text-lg">
+          Upload an image, add multiple texts, and download your creations
+        </p>
+      </div>
 
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement("a")
-            a.href = url
-            a.download = `edited-image-${index + 1}.png`
-            document.body.appendChild(a)
-            a.click()
-            document.body.removeChild(a)
-            URL.revokeObjectURL(url)
-        })
-    }
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Controls Panel */}
+        <div className="space-y-6">
+          <Card className="border-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="w-5 h-5" />
+                Upload Image
+              </CardTitle>
+              <CardDescription>
+                Choose an image to add text overlay
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
+                size="lg"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Choose Image
+              </Button>
+            </CardContent>
+          </Card>
 
-    const handleDownloadAll = () => {
-        generatedImages.forEach((canvas, index) => {
-            setTimeout(() => {
-                handleDownloadSingle(canvas, index)
-            }, index * 200)
-        })
-    }
-
-    return (
-        <div className="container mx-auto px-4 py-8 max-w-7xl">
-            <div className="mb-8 text-center">
-                <h1 className="text-4xl font-bold mb-2 text-foreground">Image Text Editor</h1>
-                <p className="text-muted-foreground text-lg">
-                    Upload an image, add multiple texts, and download your creations
+          <Card className="border-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Type className="w-5 h-5" />
+                Text Settings
+              </CardTitle>
+              <CardDescription>
+                Add multiple texts (one per line) with auto-sizing in fixed box
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="text">Text Content (one per line)</Label>
+                <Textarea
+                  id="text"
+                  value={textInput}
+                  onChange={(e) => handleTextInputChange(e.target.value)}
+                  placeholder="Enter your texts, one per line&#10;Each line will create a new image&#10;Text size adjusts to fit the fixed box"
+                  className="border-2 min-h-[120px] font-mono"
+                  rows={5}
+                />
+                <p className="text-sm text-muted-foreground">
+                  {textArray.length} image{textArray.length !== 1 ? "s" : ""}{" "}
+                  will be generated
                 </p>
-            </div>
+              </div>
 
-            <div className="grid lg:grid-cols-2 gap-6">
-                {/* Controls Panel */}
-                <div className="space-y-6">
-                    <Card className="border-2">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Upload className="w-5 h-5"/>
-                                Upload Image
-                            </CardTitle>
-                            <CardDescription>Choose an image to add text overlay</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload}
-                                   className="hidden"/>
-                            <Button
-                                onClick={() => fileInputRef.current?.click()}
-                                className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
-                                size="lg"
-                            >
-                                <Upload className="w-4 h-4 mr-2"/>
-                                Choose Image
-                            </Button>
-                        </CardContent>
-                    </Card>
+              <div className="space-y-4">
+                <Label>Text Position</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="position-x"
+                      className="text-sm text-muted-foreground"
+                    >
+                      X Position (%)
+                    </Label>
+                    <Input
+                      id="position-x"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={textX.toFixed(1)}
+                      onChange={(e) => handleXPositionChange(e.target.value)}
+                      className="border-2"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="position-y"
+                      className="text-sm text-muted-foreground"
+                    >
+                      Y Position (%)
+                    </Label>
+                    <Input
+                      id="position-y"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={textY.toFixed(1)}
+                      onChange={(e) => handleYPositionChange(e.target.value)}
+                      className="border-2"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  You can also drag the text box in the preview to reposition it
+                </p>
+              </div>
 
-                    <Card className="border-2">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Type className="w-5 h-5"/>
-                                Text Settings
-                            </CardTitle>
-                            <CardDescription>Add multiple texts (one per line) with auto-sizing in fixed
-                                box</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="space-y-2">
-                                <Label htmlFor="text">Text Content (one per line)</Label>
-                                <Textarea
-                                    id="text"
-                                    value={textInput}
-                                    onChange={(e) => handleTextInputChange(e.target.value)}
-                                    placeholder="Enter your texts, one per line&#10;Each line will create a new image&#10;Text size adjusts to fit the fixed box"
-                                    className="border-2 min-h-[120px] font-mono"
-                                    rows={5}
-                                />
-                                <p className="text-sm text-muted-foreground">
-                                    {textArray.length} image{textArray.length !== 1 ? "s" : ""} will be generated
-                                </p>
-                            </div>
+              <div className="space-y-4 p-4 bg-muted/50 rounded-lg border-2">
+                <Label className="text-base font-semibold">
+                  Text Box Dimensions
+                </Label>
 
-                            <div className="space-y-4">
-                                <Label>Text Position</Label>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="position-x" className="text-sm text-muted-foreground">
-                                            X Position (%)
-                                        </Label>
-                                        <Input
-                                            id="position-x"
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            step="0.1"
-                                            value={textX.toFixed(1)}
-                                            onChange={(e) => handleXPositionChange(e.target.value)}
-                                            className="border-2"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="position-y" className="text-sm text-muted-foreground">
-                                            Y Position (%)
-                                        </Label>
-                                        <Input
-                                            id="position-y"
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            step="0.1"
-                                            value={textY.toFixed(1)}
-                                            onChange={(e) => handleYPositionChange(e.target.value)}
-                                            className="border-2"
-                                        />
-                                    </div>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                    You can also drag the text box in the preview to reposition it
-                                </p>
-                            </div>
-
-                            <div className="space-y-4 p-4 bg-muted/50 rounded-lg border-2">
-                                <Label className="text-base font-semibold">Text Box Dimensions</Label>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="text-box-width">Box Width: {textBoxWidth}%</Label>
-                                    <Slider
-                                        id="text-box-width"
-                                        min={10}
-                                        max={100}
-                                        step={5}
-                                        value={[textBoxWidth]}
-                                        onValueChange={(value) => setTextBoxWidth(value[0])}
-                                        className="py-4"
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="text-box-height">Box Height: {textBoxHeight}%</Label>
-                                    <Slider
-                                        id="text-box-height"
-                                        min={5}
-                                        max={50}
-                                        step={1}
-                                        value={[textBoxHeight]}
-                                        onValueChange={(value) => setTextBoxHeight(value[0])}
-                                        className="py-4"
-                                    />
-                                </div>
-
-                                <p className="text-xs text-muted-foreground">
-                                    Text automatically scales to fit within this fixed box, just like Keynote
-                                </p>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Text Alignment</Label>
-                                <div className="flex gap-2">
-                                    <Button
-                                        variant={textAlign === "left" ? "default" : "outline"}
-                                        size="sm"
-                                        onClick={() => setTextAlign("left")}
-                                        className="flex-1"
-                                    >
-                                        <AlignLeft className="w-4 h-4 mr-2"/>
-                                        Left
-                                    </Button>
-                                    <Button
-                                        variant={textAlign === "center" ? "default" : "outline"}
-                                        size="sm"
-                                        onClick={() => setTextAlign("center")}
-                                        className="flex-1"
-                                    >
-                                        <AlignCenter className="w-4 h-4 mr-2"/>
-                                        Center
-                                    </Button>
-                                    <Button
-                                        variant={textAlign === "right" ? "default" : "outline"}
-                                        size="sm"
-                                        onClick={() => setTextAlign("right")}
-                                        className="flex-1"
-                                    >
-                                        <AlignRight className="w-4 h-4 mr-2"/>
-                                        Right
-                                    </Button>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="font-family">Font Family</Label>
-                                <Select value={fontFamily} onValueChange={setFontFamily}>
-                                    <SelectTrigger id="font-family" className="border-2">
-                                        <SelectValue/>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Arial">Arial</SelectItem>
-                                        <SelectItem value="Georgia">Georgia</SelectItem>
-                                        <SelectItem value="Times New Roman">Times New Roman</SelectItem>
-                                        <SelectItem value="Courier New">Courier New</SelectItem>
-                                        <SelectItem value="Verdana">Verdana</SelectItem>
-                                        <SelectItem value="Impact">Impact</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="text-color">Text Color</Label>
-                                <div className="flex gap-2">
-                                    <Input
-                                        id="text-color"
-                                        type="color"
-                                        value={textColor}
-                                        onChange={(e) => setTextColor(e.target.value)}
-                                        className="w-20 h-10 cursor-pointer border-2"
-                                    />
-                                    <Input
-                                        type="text"
-                                        value={textColor}
-                                        onChange={(e) => setTextColor(e.target.value)}
-                                        className="flex-1 border-2"
-                                    />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {image && generatedImages.length > 0 && (
-                        <Button
-                            onClick={handleDownloadAll}
-                            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                            size="lg"
-                        >
-                            <DownloadCloud className="w-4 h-4 mr-2"/>
-                            Download All Images ({generatedImages.length})
-                        </Button>
-                    )}
+                <div className="space-y-2">
+                  <Label htmlFor="text-box-width">
+                    Box Width: {textBoxWidth}%
+                  </Label>
+                  <Slider
+                    id="text-box-width"
+                    min={10}
+                    max={100}
+                    step={5}
+                    value={[textBoxWidth]}
+                    onValueChange={(value) => setTextBoxWidth(value[0])}
+                    className="py-4"
+                  />
                 </div>
 
-                {/* Preview Panel */}
-                <div>
-                    <Card className="border-2 sticky top-8">
-                        <CardHeader>
-                            <CardTitle>Interactive Preview</CardTitle>
-                            <CardDescription>
-                                {image
-                                    ? "Drag the text box to reposition it. Dashed box shows the fixed text area."
-                                    : "Upload an image to get started"}
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {image ? (
-                                <div className="space-y-4">
-                                    <div className="relative">
-                                        <canvas
-                                            ref={previewCanvasRef}
-                                            onMouseDown={handleMouseDown}
-                                            onMouseMove={handleMouseMove}
-                                            onMouseUp={handleMouseUp}
-                                            onMouseLeave={handleMouseUp}
-                                            className="w-full h-auto border-2 border-border rounded-lg cursor-move"
-                                            style={{touchAction: "none"}}
-                                        />
-                                    </div>
-
-                                    {generatedImages.length > 1 && (
-                                        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                                            <p className="text-sm font-semibold text-muted-foreground">All Generated
-                                                Images:</p>
-                                            {generatedImages.map((canvas, index) => (
-                                                <div key={index} className="space-y-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <p className="text-sm font-medium text-muted-foreground">
-                                                            Image {index + 1}: "{textArray[index]}"
-                                                        </p>
-                                                        <Button
-                                                            onClick={() => handleDownloadSingle(canvas, index)}
-                                                            size="sm"
-                                                            variant="outline"
-                                                            className="h-8"
-                                                        >
-                                                            <Download className="w-3 h-3 mr-1"/>
-                                                            Download
-                                                        </Button>
-                                                    </div>
-                                                    <img
-                                                        src={canvas.toDataURL() || "/placeholder.svg"}
-                                                        alt={`Preview ${index + 1}`}
-                                                        className="w-full h-auto border-2 border-border rounded-lg"
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div
-                                    className="aspect-video bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border">
-                                    <div className="text-center text-muted-foreground">
-                                        <Upload className="w-12 h-12 mx-auto mb-2 opacity-50"/>
-                                        <p className="text-sm">No image uploaded</p>
-                                    </div>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                <div className="space-y-2">
+                  <Label htmlFor="text-box-height">
+                    Box Height: {textBoxHeight}%
+                  </Label>
+                  <Slider
+                    id="text-box-height"
+                    min={5}
+                    max={50}
+                    step={1}
+                    value={[textBoxHeight]}
+                    onValueChange={(value) => setTextBoxHeight(value[0])}
+                    className="py-4"
+                  />
                 </div>
-            </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Text automatically scales to fit within this fixed box, just
+                  like Keynote
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Text Alignment</Label>
+                <div className="flex gap-2">
+                  <Button
+                    variant={textAlign === "left" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setTextAlign("left")}
+                    className="flex-1"
+                  >
+                    <AlignLeft className="w-4 h-4 mr-2" />
+                    Left
+                  </Button>
+                  <Button
+                    variant={textAlign === "center" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setTextAlign("center")}
+                    className="flex-1"
+                  >
+                    <AlignCenter className="w-4 h-4 mr-2" />
+                    Center
+                  </Button>
+                  <Button
+                    variant={textAlign === "right" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setTextAlign("right")}
+                    className="flex-1"
+                  >
+                    <AlignRight className="w-4 h-4 mr-2" />
+                    Right
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="font-family">Font Family</Label>
+                <Select value={fontFamily} onValueChange={setFontFamily}>
+                  <SelectTrigger id="font-family" className="border-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Arial">Arial</SelectItem>
+                    <SelectItem value="Georgia">Georgia</SelectItem>
+                    <SelectItem value="Times New Roman">
+                      Times New Roman
+                    </SelectItem>
+                    <SelectItem value="Courier New">Courier New</SelectItem>
+                    <SelectItem value="Verdana">Verdana</SelectItem>
+                    <SelectItem value="Impact">Impact</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="text-color">Text Color</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="text-color"
+                    type="color"
+                    value={textColor}
+                    onChange={(e) => setTextColor(e.target.value)}
+                    className="w-20 h-10 cursor-pointer border-2"
+                  />
+                  <Input
+                    type="text"
+                    value={textColor}
+                    onChange={(e) => setTextColor(e.target.value)}
+                    className="flex-1 border-2"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {image && generatedImages.length > 0 && (
+            <Button
+              onClick={handleDownloadAll}
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+              size="lg"
+            >
+              <DownloadCloud className="w-4 h-4 mr-2" />
+              Download All Images ({generatedImages.length})
+            </Button>
+          )}
         </div>
-    )
+
+        {/* Preview Panel */}
+        <div>
+          <Card className="border-2 sticky top-8">
+            <CardHeader>
+              <CardTitle>Interactive Preview</CardTitle>
+              <CardDescription>
+                {image
+                  ? "Drag the text box to reposition it. Dashed box shows the fixed text area."
+                  : "Upload an image to get started"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {image ? (
+                <div className="space-y-4">
+                  <div className="relative">
+                    <canvas
+                      ref={previewCanvasRef}
+                      onMouseDown={handleMouseDown}
+                      onMouseMove={handleMouseMove}
+                      onMouseUp={handleMouseUp}
+                      onMouseLeave={handleMouseUp}
+                      className="w-full h-auto border-2 border-border rounded-lg cursor-move"
+                      style={{ touchAction: "none" }}
+                    />
+                  </div>
+
+                  {generatedImages.length > 1 && (
+                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                      <p className="text-sm font-semibold text-muted-foreground">
+                        All Generated Images:
+                      </p>
+                      {generatedImages.map((canvas, index) => (
+                        <div key={index} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium text-muted-foreground">
+                              Image {index + 1}: "{textArray[index]}"
+                            </p>
+                            <Button
+                              onClick={() =>
+                                handleDownloadSingle(canvas, index)
+                              }
+                              size="sm"
+                              variant="outline"
+                              className="h-8"
+                            >
+                              <Download className="w-3 h-3 mr-1" />
+                              Download
+                            </Button>
+                          </div>
+                          <img
+                            src={canvas.toDataURL() || "/placeholder.svg"}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-auto border-2 border-border rounded-lg"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="aspect-video bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border">
+                  <div className="text-center text-muted-foreground">
+                    <Upload className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No image uploaded</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
 }
