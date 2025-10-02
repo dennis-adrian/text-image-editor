@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,7 +31,10 @@ import {
   AlignCenter,
   AlignRight,
 } from "lucide-react";
-import { drawTextInBox } from "@/components/image-text-editor/utils";
+import {
+  drawTextInBox,
+  calculateOptimalFontSize,
+} from "@/components/image-text-editor/utils";
 
 export function ImageTextEditor() {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
@@ -55,6 +58,134 @@ export function ImageTextEditor() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const throttleRef = useRef<NodeJS.Timeout | null>(null);
+  const textCacheRef = useRef<
+    Map<string, { fontSize: number; lines: string[] }>
+  >(new Map());
+
+  // Optimized text drawing with caching
+  const drawTextInBoxOptimized = useCallback(
+    (
+      ctx: CanvasRenderingContext2D,
+      text: string,
+      x: number,
+      y: number,
+      boxWidth: number,
+      boxHeight: number,
+      showBox: boolean,
+      fontFamily: string,
+      textColor: string,
+      textAlign: "left" | "center" | "right",
+    ) => {
+      const cacheKey = `${text}-${boxWidth}-${boxHeight}-${fontFamily}`;
+      let cached = textCacheRef.current.get(cacheKey);
+
+      if (!cached) {
+        const result = calculateOptimalFontSize(
+          ctx,
+          text,
+          boxWidth,
+          boxHeight,
+          fontFamily,
+        );
+        cached = result;
+        textCacheRef.current.set(cacheKey, cached);
+      }
+
+      const { fontSize, lines } = cached;
+
+      if (showBox) {
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(x, y, boxWidth, boxHeight);
+        ctx.setLineDash([]);
+      }
+
+      ctx.font = `${fontSize}px ${fontFamily}`;
+      ctx.fillStyle = textColor;
+      ctx.textBaseline = "top";
+      ctx.textAlign = textAlign;
+
+      const lineHeight = fontSize * 1.2;
+
+      lines.forEach((line: string, index: number) => {
+        let lineX = x;
+        if (textAlign === "center") {
+          lineX = x + boxWidth / 2;
+        } else if (textAlign === "right") {
+          lineX = x + boxWidth;
+        }
+
+        ctx.fillText(line, lineX, y + index * lineHeight);
+      });
+    },
+    [],
+  );
+
+  // Throttled canvas redraw for smooth dragging
+  const throttledCanvasRedraw = useCallback(
+    (tempX: number, tempY: number) => {
+      if (throttleRef.current) {
+        clearTimeout(throttleRef.current);
+      }
+
+      throttleRef.current = setTimeout(() => {
+        if (!image || !previewCanvasRef.current) return;
+
+        const canvas = previewCanvasRef.current;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        // Clear and redraw
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(image, 0, 0);
+
+        const boxWidthPx = (textBoxWidth / 100) * canvas.width;
+        const boxHeightPx = (textBoxHeight / 100) * canvas.height;
+        const x = (tempX / 100) * canvas.width;
+        const y = (tempY / 100) * canvas.height;
+        const text = textArray[0] || "";
+
+        drawTextInBoxOptimized(
+          ctx,
+          text,
+          x,
+          y,
+          boxWidthPx,
+          boxHeightPx,
+          true,
+          fontFamily,
+          textColor,
+          textAlign,
+        );
+      }, 16); // ~60fps throttling
+    },
+    [
+      image,
+      textArray,
+      textBoxWidth,
+      textBoxHeight,
+      fontFamily,
+      textColor,
+      textAlign,
+      drawTextInBoxOptimized,
+    ],
+  );
+
+  // Clear text cache when text properties change
+  useEffect(() => {
+    textCacheRef.current.clear();
+  }, [textArray, textBoxWidth, textBoxHeight, fontFamily]);
+
+  // Cleanup throttle timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (throttleRef.current) {
+        clearTimeout(throttleRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!image || textArray.length === 0) {
@@ -108,8 +239,9 @@ export function ImageTextEditor() {
     textAlign,
   ]);
 
+  // Only redraw preview canvas when not dragging to avoid conflicts
   useEffect(() => {
-    if (!image || !previewCanvasRef.current) return;
+    if (!image || !previewCanvasRef.current || isDragging) return;
 
     const canvas = previewCanvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -126,7 +258,7 @@ export function ImageTextEditor() {
     const y = (textY / 100) * canvas.height;
     const text = textArray[0] || "";
 
-    drawTextInBox(
+    drawTextInBoxOptimized(
       ctx,
       text,
       x,
@@ -148,6 +280,8 @@ export function ImageTextEditor() {
     textColor,
     fontFamily,
     textAlign,
+    isDragging,
+    drawTextInBoxOptimized,
   ]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -166,32 +300,50 @@ export function ImageTextEditor() {
     setDragStartTextPos({ x: textX, y: textY });
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDragging) return;
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      if (!isDragging) return;
 
-    const canvas = previewCanvasRef.current;
-    if (!canvas) return;
+      const canvas = previewCanvasRef.current;
+      if (!canvas) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
 
-    const mouseX = (e.clientX - rect.left) * scaleX;
-    const mouseY = (e.clientY - rect.top) * scaleY;
+      const mouseX = (e.clientX - rect.left) * scaleX;
+      const mouseY = (e.clientY - rect.top) * scaleY;
 
-    const deltaX = mouseX - dragStartPos.x;
-    const deltaY = mouseY - dragStartPos.y;
+      const deltaX = mouseX - dragStartPos.x;
+      const deltaY = mouseY - dragStartPos.y;
 
-    const newX = dragStartTextPos.x + (deltaX / canvas.width) * 100;
-    const newY = dragStartTextPos.y + (deltaY / canvas.height) * 100;
+      const newX = Math.max(
+        0,
+        Math.min(100, dragStartTextPos.x + (deltaX / canvas.width) * 100),
+      );
+      const newY = Math.max(
+        0,
+        Math.min(100, dragStartTextPos.y + (deltaY / canvas.height) * 100),
+      );
 
-    setTextX(Math.max(0, Math.min(100, newX)));
-    setTextY(Math.max(0, Math.min(100, newY)));
-  };
+      // Use throttled redraw for smooth dragging
+      throttledCanvasRedraw(newX, newY);
 
-  const handleMouseUp = () => {
+      // Update state for final position
+      setTextX(newX);
+      setTextY(newY);
+    },
+    [isDragging, dragStartPos, dragStartTextPos, throttledCanvasRedraw],
+  );
+
+  const handleMouseUp = useCallback(() => {
     setIsDragging(false);
-  };
+    // Clear any pending throttled redraws
+    if (throttleRef.current) {
+      clearTimeout(throttleRef.current);
+      throttleRef.current = null;
+    }
+  }, []);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
