@@ -40,14 +40,14 @@ export function ImageTextEditor() {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [textArray, setTextArray] = useState<string[]>(["Your Text Here"]);
   const [textInput, setTextInput] = useState("Your Text Here");
-  const [textX, setTextX] = useState(50);
-  const [textY, setTextY] = useState(50);
-  const [textBoxWidth, setTextBoxWidth] = useState(80);
-  const [textBoxHeight, setTextBoxHeight] = useState(20);
-  const [textColor, setTextColor] = useState("#ffffff");
-  const [fontFamily, setFontFamily] = useState("Arial");
+  const [textX, setTextX] = useState(14.5);
+  const [textY, setTextY] = useState(35.5);
+  const [textBoxWidth, setTextBoxWidth] = useState(70);
+  const [textBoxHeight, setTextBoxHeight] = useState(10);
+  const [textColor, setTextColor] = useState("#000000");
+  const [fontFamily, setFontFamily] = useState("Chau Philomene One");
   const [textAlign, setTextAlign] = useState<"left" | "center" | "right">(
-    "left",
+    "center",
   );
   const [generatedImages, setGeneratedImages] = useState<HTMLCanvasElement[]>(
     [],
@@ -62,6 +62,47 @@ export function ImageTextEditor() {
   const textCacheRef = useRef<
     Map<string, { fontSize: number; lines: string[] }>
   >(new Map());
+
+  // Utility function to handle special characters
+  const sanitizeText = (text: string): string => {
+    return text
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&copy;/g, "©")
+      .replace(/&reg;/g, "®")
+      .replace(/&trade;/g, "™")
+      .replace(/&euro;/g, "€")
+      .replace(/&pound;/g, "£")
+      .replace(/&yen;/g, "¥")
+      .replace(/&cent;/g, "¢")
+      .replace(/&sect;/g, "§")
+      .replace(/&para;/g, "¶")
+      .replace(/&middot;/g, "·")
+      .replace(/&hellip;/g, "…")
+      .replace(/&ndash;/g, "–")
+      .replace(/&mdash;/g, "—");
+  };
+
+  // Ensure custom font is loaded for canvas rendering
+  useEffect(() => {
+    const loadCustomFont = async () => {
+      try {
+        // Check if the custom font is available
+        if (document.fonts && document.fonts.load) {
+          await document.fonts.load('16px "Chau Philomene One"');
+          console.log("Custom font loaded successfully");
+        }
+      } catch (error) {
+        console.warn("Custom font loading failed:", error);
+      }
+    };
+
+    loadCustomFont();
+  }, []);
 
   // Optimized text drawing with caching
   const drawTextInBoxOptimized = useCallback(
@@ -81,9 +122,10 @@ export function ImageTextEditor() {
       let cached = textCacheRef.current.get(cacheKey);
 
       if (!cached) {
+        const sanitizedText = sanitizeText(text);
         const result = calculateOptimalFontSize(
           ctx,
-          text,
+          sanitizedText,
           boxWidth,
           boxHeight,
           fontFamily,
@@ -94,20 +136,29 @@ export function ImageTextEditor() {
 
       const { fontSize, lines } = cached;
 
+      const lineHeight = fontSize * 1.2;
+      const totalTextHeight = lines.length * lineHeight;
+
+      // Use the actual text height for the bounding box instead of the fixed boxHeight
+      const actualBoxHeight = totalTextHeight;
+
       if (showBox) {
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+        ctx.strokeStyle = "rgba(0,0,0, 0.5)";
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
-        ctx.strokeRect(x, y, boxWidth, boxHeight);
+        ctx.strokeRect(x, y, boxWidth, actualBoxHeight);
         ctx.setLineDash([]);
       }
 
-      ctx.font = `${fontSize}px ${fontFamily}`;
+      // Set font with fallback for custom fonts
+      const fontToUse =
+        fontFamily === "Chau Philomene One"
+          ? `"Chau Philomene One", Arial, sans-serif`
+          : fontFamily;
+      ctx.font = `${fontSize}px ${fontToUse}`;
       ctx.fillStyle = textColor;
       ctx.textBaseline = "top";
       ctx.textAlign = textAlign;
-
-      const lineHeight = fontSize * 1.2;
 
       lines.forEach((line: string, index: number) => {
         let lineX = x;
@@ -363,7 +414,10 @@ export function ImageTextEditor() {
 
   const handleTextInputChange = (value: string) => {
     setTextInput(value);
-    const lines = value.split("\n").filter((line) => line.trim() !== "");
+    const lines = value
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line !== "");
     setTextArray(lines.length > 0 ? lines : [""]);
   };
 
@@ -381,14 +435,18 @@ export function ImageTextEditor() {
     }
   };
 
-  const handleDownloadSingle = (canvas: HTMLCanvasElement, index: number) => {
+  const handleDownloadSingle = (
+    canvas: HTMLCanvasElement,
+    index: number,
+    text: string,
+  ) => {
     canvas.toBlob((blob) => {
       if (!blob) return;
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `edited-image-${index + 1}.png`;
+      a.download = `${index + 1}-image-${text}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -399,7 +457,7 @@ export function ImageTextEditor() {
   const handleDownloadAll = () => {
     generatedImages.forEach((canvas, index) => {
       setTimeout(() => {
-        handleDownloadSingle(canvas, index);
+        handleDownloadSingle(canvas, index, textArray[index]);
       }, index * 200);
     });
   };
@@ -454,17 +512,18 @@ export function ImageTextEditor() {
                 Text Settings
               </CardTitle>
               <CardDescription>
-                Add multiple texts (one per line) with auto-sizing in fixed box
+                Add multiple texts (comma-separated) with auto-sizing in fixed
+                box
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="text">Text Content (one per line)</Label>
+                <Label htmlFor="text">Text Content (comma-separated)</Label>
                 <Textarea
                   id="text"
                   value={textInput}
                   onChange={(e) => handleTextInputChange(e.target.value)}
-                  placeholder="Enter your texts, one per line&#10;Each line will create a new image&#10;Text size adjusts to fit the fixed box"
+                  placeholder="Enter your texts, separated by new lines&#10;Each text will create a new image&#10;Text size adjusts to fit the fixed box&#10;Special characters like &, ©, ® are supported"
                   className="border-2 min-h-[120px] font-mono"
                   rows={5}
                 />
@@ -555,8 +614,8 @@ export function ImageTextEditor() {
                 </div>
 
                 <p className="text-xs text-muted-foreground">
-                  Text automatically scales to fit within this fixed box, just
-                  like Keynote
+                  Text automatically scales to fit within the box width, and the
+                  box height adjusts to match the text
                 </p>
               </div>
 
@@ -608,6 +667,9 @@ export function ImageTextEditor() {
                     <SelectItem value="Courier New">Courier New</SelectItem>
                     <SelectItem value="Verdana">Verdana</SelectItem>
                     <SelectItem value="Impact">Impact</SelectItem>
+                    <SelectItem value="Chau Philomene One">
+                      Chau Philomene One ✨
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -684,7 +746,11 @@ export function ImageTextEditor() {
                             </p>
                             <Button
                               onClick={() =>
-                                handleDownloadSingle(canvas, index)
+                                handleDownloadSingle(
+                                  canvas,
+                                  index,
+                                  textArray[index],
+                                )
                               }
                               size="sm"
                               variant="outline"

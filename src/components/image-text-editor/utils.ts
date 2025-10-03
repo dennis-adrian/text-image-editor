@@ -1,3 +1,31 @@
+// Utility function to properly handle special characters
+const sanitizeText = (text: string): string => {
+  // Decode HTML entities and handle special characters
+  return (
+    text
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, " ")
+      // Handle other common special characters
+      .replace(/&copy;/g, "©")
+      .replace(/&reg;/g, "®")
+      .replace(/&trade;/g, "™")
+      .replace(/&euro;/g, "€")
+      .replace(/&pound;/g, "£")
+      .replace(/&yen;/g, "¥")
+      .replace(/&cent;/g, "¢")
+      .replace(/&sect;/g, "§")
+      .replace(/&para;/g, "¶")
+      .replace(/&middot;/g, "·")
+      .replace(/&hellip;/g, "…")
+      .replace(/&ndash;/g, "–")
+      .replace(/&mdash;/g, "—")
+  );
+};
+
 const wrapText = (
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -5,8 +33,11 @@ const wrapText = (
   fontSize: number,
   fontFamily: string,
 ): string[] => {
+  // Sanitize the text to handle special characters
+  const sanitizedText = sanitizeText(text);
+
   ctx.font = `${fontSize}px ${fontFamily}`;
-  const words = text.split(" ");
+  const words = sanitizedText.split(" ");
   const lines: string[] = [];
   let currentLine = "";
 
@@ -77,25 +108,29 @@ export const drawTextInBox = (
     fontFamily,
   );
 
-  if (showBox) {
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 5]);
-    ctx.strokeRect(x, y, boxWidth, boxHeight);
-    ctx.setLineDash([]);
-  }
-
   ctx.font = `${fontSize}px ${fontFamily}`;
   ctx.fillStyle = textColor;
   ctx.textBaseline = "top";
   ctx.textAlign = textAlign;
 
-  ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-  ctx.shadowBlur = 4;
-  ctx.shadowOffsetX = 2;
-  ctx.shadowOffsetY = 2;
+  // ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+  // ctx.shadowBlur = 4;
+  // ctx.shadowOffsetX = 2;
+  // ctx.shadowOffsetY = 2;
 
   const lineHeight = fontSize * 1.2;
+  const totalTextHeight = lines.length * lineHeight;
+
+  // Use the actual text height for the bounding box instead of the fixed boxHeight
+  const actualBoxHeight = totalTextHeight;
+
+  if (showBox) {
+    ctx.strokeStyle = "rgba(0,0,0, 0.5)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.strokeRect(x, y, boxWidth, actualBoxHeight);
+    ctx.setLineDash([]);
+  }
 
   lines.forEach((line, index) => {
     let lineX = x;
@@ -108,8 +143,8 @@ export const drawTextInBox = (
     ctx.fillText(line, lineX, y + index * lineHeight);
   });
 
-  ctx.shadowColor = "transparent";
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
+  // ctx.shadowColor = "transparent";
+  // ctx.shadowBlur = 0;
+  // ctx.shadowOffsetX = 0;
+  // ctx.shadowOffsetY = 0;
 };
