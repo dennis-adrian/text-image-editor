@@ -40,12 +40,12 @@ export function ImageTextEditor() {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [textArray, setTextArray] = useState<string[]>(["Your Text Here"]);
   const [textInput, setTextInput] = useState("Your Text Here");
-  const [textX, setTextX] = useState(14.5);
-  const [textY, setTextY] = useState(35.5);
+  const [textX, setTextX] = useState(14.8);
+  const [textY, setTextY] = useState(31);
   const [textBoxWidth, setTextBoxWidth] = useState(70);
   const [textBoxHeight, setTextBoxHeight] = useState(10);
-  const [textColor, setTextColor] = useState("#000000");
-  const [fontFamily, setFontFamily] = useState("Chau Philomene One");
+  const [textColor, setTextColor] = useState("#55559D");
+  const [fontFamily, setFontFamily] = useState("Reusco Display");
   const [textAlign, setTextAlign] = useState<"left" | "center" | "right">(
     "center",
   );
@@ -93,7 +93,7 @@ export function ImageTextEditor() {
       try {
         // Check if the custom font is available
         if (document.fonts && document.fonts.load) {
-          await document.fonts.load('16px "Chau Philomene One"');
+          await document.fonts.load('16px "Reusco Display"');
           console.log("Custom font loaded successfully");
         }
       } catch (error) {
@@ -152,8 +152,8 @@ export function ImageTextEditor() {
 
       // Set font with fallback for custom fonts
       const fontToUse =
-        fontFamily === "Chau Philomene One"
-          ? `"Chau Philomene One", Arial, sans-serif`
+        fontFamily === "Reusco Display"
+          ? `"Reusco Display", Arial, sans-serif`
           : fontFamily;
       ctx.font = `${fontSize}px ${fontToUse}`;
       ctx.fillStyle = textColor;
@@ -668,7 +668,10 @@ export function ImageTextEditor() {
                     <SelectItem value="Verdana">Verdana</SelectItem>
                     <SelectItem value="Impact">Impact</SelectItem>
                     <SelectItem value="Chau Philomene One">
-                      Chau Philomene One ✨
+                      Chau Philomene One
+                    </SelectItem>
+                    <SelectItem value="Reusco Display">
+                      Reusco Display
                     </SelectItem>
                   </SelectContent>
                 </Select>

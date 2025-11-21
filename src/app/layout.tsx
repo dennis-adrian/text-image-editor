@@ -8,6 +8,11 @@ const chauPhilomeneOneRegular = localFont({
   variable: "--font-chau-philomene-one",
 });
 
+const reuscoDisplay = localFont({
+  src: "../fonts/Reusco-Display.otf",
+  variable: "--font-reusco-display",
+});
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -31,7 +36,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${chauPhilomeneOneRegular.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${chauPhilomeneOneRegular.variable} ${reuscoDisplay.variable} antialiased`}
       >
         {children}
       </body>
