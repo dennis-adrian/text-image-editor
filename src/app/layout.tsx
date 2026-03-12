@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
+import { NavBar } from "@/components/nav-bar";
 
 const chauPhilomeneOneRegular = localFont({
   src: "../fonts/ChauPhilomeneOne-Regular.ttf",
@@ -38,6 +39,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${chauPhilomeneOneRegular.variable} ${reuscoDisplay.variable} antialiased`}
       >
+        <NavBar />
         {children}
       </body>
     </html>

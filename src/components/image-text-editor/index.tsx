@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -9,7 +10,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Upload, DownloadCloud, Loader2, Images } from "lucide-react";
+import { Upload, DownloadCloud, Loader2, Images, Printer } from "lucide-react";
+import { printStore } from "@/lib/print-store";
 import {
   drawTextInBox,
   sanitizeFilename,
@@ -73,6 +75,7 @@ export function ImageTextEditor() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const generationIdRef = useRef(0);
+  const router = useRouter();
 
   // ── Hydrate from localStorage (client-only, after first paint to avoid hydration mismatch) ──
 
@@ -250,6 +253,12 @@ export function ImageTextEditor() {
       if (chunkIndex < textsToGenerate.length) {
         setTimeout(processChunk, 0); // yield to main thread
       } else {
+        printStore.set(
+          accumulated.map((canvas, i) => ({
+            dataUrl: canvas.toDataURL("image/png"),
+            label: textsToGenerate[i] ?? "",
+          })),
+        );
         setIsGenerating(false);
       }
     };
@@ -284,6 +293,15 @@ export function ImageTextEditor() {
     },
     [],
   );
+
+  const handlePrintLayout = useCallback(async () => {
+    const printImages = generatedImages.map((canvas, i) => ({
+      dataUrl: canvas.toDataURL("image/png"),
+      label: generatedTextArray[i] ?? "",
+    }));
+    printStore.set(printImages);
+    router.push("/print");
+  }, [generatedImages, generatedTextArray, router]);
 
   const handleDownloadAll = async () => {
     if (isZipping || generatedImages.length === 0) return;
@@ -409,6 +427,18 @@ export function ImageTextEditor() {
               </>
             )}
           </Button>
+
+          {generatedImages.length > 0 && !isGenerating && (
+            <Button
+              onClick={handlePrintLayout}
+              variant="outline"
+              className="w-full"
+              size="lg"
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Print Layout ({generatedImages.length} images)
+            </Button>
+          )}
 
           {generatedImages.length > 0 && (
             <Button
