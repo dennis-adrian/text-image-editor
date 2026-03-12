@@ -1,5 +1,19 @@
+// Quote multi-word font names so the Canvas 2D API parses them correctly.
+// Without quotes, "Times New Roman" is parsed as family "Times" with unknown
+// keywords "New" and "Roman", causing fallback to the default font.
+export function toCssFontFamily(fontFamily: string): string {
+  if (
+    fontFamily.includes(" ") &&
+    !fontFamily.startsWith('"') &&
+    !fontFamily.startsWith("'")
+  ) {
+    return `"${fontFamily}", sans-serif`;
+  }
+  return fontFamily;
+}
+
 // Utility function to properly handle special characters
-const sanitizeText = (text: string): string => {
+export const sanitizeText = (text: string): string => {
   // Decode HTML entities and handle special characters
   return (
     text
@@ -36,7 +50,7 @@ const wrapText = (
   // Sanitize the text to handle special characters
   const sanitizedText = sanitizeText(text);
 
-  ctx.font = `${fontSize}px ${fontFamily}`;
+  ctx.font = `${fontSize}px ${toCssFontFamily(fontFamily)}`;
   const words = sanitizedText.split(" ");
   const lines: string[] = [];
   let currentLine = "";
@@ -72,12 +86,13 @@ export const calculateOptimalFontSize = (
   let fontSize = maxSize;
 
   while (fontSize > minSize) {
-    ctx.font = `${fontSize}px ${fontFamily}`;
+    ctx.font = `${fontSize}px ${toCssFontFamily(fontFamily)}`;
     const lines = wrapText(ctx, text, maxWidth, fontSize, fontFamily);
     const lineHeight = fontSize * 1.2;
     const totalHeight = lines.length * lineHeight;
 
-    if (totalHeight <= maxHeight) {
+    const maxLineWidth = Math.max(...lines.map((l) => ctx.measureText(l).width));
+    if (totalHeight <= maxHeight && maxLineWidth <= maxWidth) {
       return { fontSize, lines };
     }
 
@@ -87,6 +102,13 @@ export const calculateOptimalFontSize = (
   const lines = wrapText(ctx, text, maxWidth, minSize, fontFamily);
   return { fontSize: minSize, lines };
 };
+
+export function sanitizeFilename(text: string): string {
+  return text
+    .replace(/[/\\:*?"<>|]/g, "_")
+    .substring(0, 50)
+    .trim();
+}
 
 export const drawTextInBox = (
   ctx: CanvasRenderingContext2D,
@@ -108,27 +130,22 @@ export const drawTextInBox = (
     fontFamily,
   );
 
-  ctx.font = `${fontSize}px ${fontFamily}`;
+  ctx.font = `${fontSize}px ${toCssFontFamily(fontFamily)}`;
   ctx.fillStyle = textColor;
   ctx.textBaseline = "top";
   ctx.textAlign = textAlign;
 
-  // ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-  // ctx.shadowBlur = 4;
-  // ctx.shadowOffsetX = 2;
-  // ctx.shadowOffsetY = 2;
-
   const lineHeight = fontSize * 1.2;
   const totalTextHeight = lines.length * lineHeight;
 
-  // Use the actual text height for the bounding box instead of the fixed boxHeight
-  const actualBoxHeight = totalTextHeight;
+  // Center the text block vertically within the box
+  const centeredY = y + Math.max(0, (boxHeight - totalTextHeight) / 2);
 
   if (showBox) {
     ctx.strokeStyle = "rgba(0,0,0, 0.5)";
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 5]);
-    ctx.strokeRect(x, y, boxWidth, actualBoxHeight);
+    ctx.strokeRect(x, y, boxWidth, boxHeight);
     ctx.setLineDash([]);
   }
 
@@ -140,7 +157,7 @@ export const drawTextInBox = (
       lineX = x + boxWidth;
     }
 
-    ctx.fillText(line, lineX, y + index * lineHeight);
+    ctx.fillText(line, lineX, centeredY + index * lineHeight);
   });
 
   // ctx.shadowColor = "transparent";
