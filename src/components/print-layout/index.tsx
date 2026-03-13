@@ -141,14 +141,14 @@ export function PrintLayout({ images }: PrintLayoutProps) {
               {/* Page size + orientation */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>Page Size</Label>
+                  <Label htmlFor="pageSize-select">Page Size</Label>
                   <Select
                     value={settings.pageSize}
                     onValueChange={(v) =>
                       update("pageSize", v as PageSizePreset)
                     }
                   >
-                    <SelectTrigger className="border-2">
+                    <SelectTrigger id="pageSize-select" className="border-2">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -162,14 +162,14 @@ export function PrintLayout({ images }: PrintLayoutProps) {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Orientation</Label>
+                  <Label htmlFor="orientation-select">Orientation</Label>
                   <Select
                     value={settings.orientation}
                     onValueChange={(v) =>
                       update("orientation", v as Orientation)
                     }
                   >
-                    <SelectTrigger className="border-2">
+                    <SelectTrigger id="orientation-select" className="border-2">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -184,28 +184,38 @@ export function PrintLayout({ images }: PrintLayoutProps) {
               {settings.pageSize === "custom" && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label>Width (mm)</Label>
+                    <Label htmlFor="custom-width-mm">Width (mm)</Label>
                     <Input
+                      id="custom-width-mm"
                       type="number"
                       min={50}
                       max={1000}
                       value={settings.customWidth}
-                      onChange={(e) =>
-                        update("customWidth", Number(e.target.value))
-                      }
+                      onChange={(e) => {
+                        const next = e.currentTarget.valueAsNumber;
+
+                        if (Number.isFinite(next)) {
+                          update("customWidth", next);
+                        }
+                      }}
                       className="border-2"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Height (mm)</Label>
+                    <Label htmlFor="custom-height-mm">Height (mm)</Label>
                     <Input
+                      id="custom-height-mm"
                       type="number"
                       min={50}
                       max={1000}
                       value={settings.customHeight}
-                      onChange={(e) =>
-                        update("customHeight", Number(e.target.value))
-                      }
+                      onChange={(e) => {
+                        const next = e.currentTarget.valueAsNumber;
+
+                        if (Number.isFinite(next)) {
+                          update("customHeight", next);
+                        }
+                      }}
                       className="border-2"
                     />
                   </div>
@@ -221,8 +231,9 @@ export function PrintLayout({ images }: PrintLayoutProps) {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>Width (mm)</Label>
+                  <Label htmlFor="image-width-mm">Width (mm)</Label>
                   <Input
+                    id="image-width-mm"
                     type="number"
                     min={10}
                     max={1000}
@@ -235,8 +246,9 @@ export function PrintLayout({ images }: PrintLayoutProps) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Height (mm)</Label>
+                  <Label htmlFor="image-height-mm">Height (mm)</Label>
                   <Input
+                    id="image-height-mm"
                     type="number"
                     min={10}
                     max={1000}
@@ -250,12 +262,19 @@ export function PrintLayout({ images }: PrintLayoutProps) {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Fit Mode</Label>
+              <div
+                className="space-y-2"
+                role="radiogroup"
+                aria-labelledby="fit-mode-label"
+              >
+                <Label id="fit-mode-label">Fit Mode</Label>
                 <div className="flex gap-2">
                   {(["fit", "stretch", "crop"] as FitMode[]).map((mode) => (
                     <Button
                       key={mode}
+                      type="button"
+                      role="radio"
+                      aria-checked={settings.fitMode === mode}
                       variant={
                         settings.fitMode === mode ? "default" : "outline"
                       }
@@ -311,8 +330,9 @@ export function PrintLayout({ images }: PrintLayoutProps) {
 
                 {uniformMargins ? (
                   <div className="space-y-2">
-                    <Label>All sides (mm)</Label>
+                    <Label htmlFor="margin-all-mm">All sides (mm)</Label>
                     <Input
+                      id="margin-all-mm"
                       type="number"
                       min={0}
                       max={100}
@@ -342,10 +362,14 @@ export function PrintLayout({ images }: PrintLayoutProps) {
                       ] as const
                     ).map((key) => (
                       <div key={key} className="space-y-2">
-                        <Label className="capitalize">
+                        <Label
+                          htmlFor={`margin-${key}-mm`}
+                          className="capitalize"
+                        >
                           {key.replace("margin", "")} (mm)
                         </Label>
                         <Input
+                          id={`margin-${key}-mm`}
                           type="number"
                           min={0}
                           max={100}
@@ -360,8 +384,9 @@ export function PrintLayout({ images }: PrintLayoutProps) {
               </div>
 
               <div className="space-y-2">
-                <Label>Gutter (mm)</Label>
+                <Label htmlFor="gutter-mm">Gutter (mm)</Label>
                 <Input
+                  id="gutter-mm"
                   type="number"
                   min={0}
                   max={30}

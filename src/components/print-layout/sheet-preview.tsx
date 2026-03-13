@@ -44,7 +44,7 @@ export function SheetPreview({
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.shadowBlur = 0;
 
-    const marginTop  = settings.marginTop  * scale;
+    const marginTop = settings.marginTop * scale;
     const marginLeft = settings.marginLeft * scale;
     const gutter = settings.gutter * scale;
     const imgW = imageW * scale;
@@ -58,7 +58,7 @@ export function SheetPreview({
         const imgIdx = startSlot + slot;
 
         const x = marginLeft + col * (imgW + gutter);
-        const y = marginTop  + row * (imgH + gutter);
+        const y = marginTop + row * (imgH + gutter);
 
         if (imgIdx < images.length) {
           // Draw placeholder first
@@ -76,7 +76,10 @@ export function SheetPreview({
             } else {
               const aspect = imgEl.width / imgEl.height;
               const boxAspect = imgW / imgH;
-              let sw = imgW, sh = imgH, ox = 0, oy = 0;
+              let sw = imgW,
+                sh = imgH,
+                ox = 0,
+                oy = 0;
 
               if (settings.fitMode === "fit") {
                 if (aspect > boxAspect) {
@@ -158,15 +161,39 @@ function drawCropMarksCanvas(
   ctx.setLineDash([]);
 
   // top-left
-  ctx.beginPath(); ctx.moveTo(x - gap - mark, y); ctx.lineTo(x - gap, y); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(x, y - gap - mark); ctx.lineTo(x, y - gap); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x - gap - mark, y);
+  ctx.lineTo(x - gap, y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x, y - gap - mark);
+  ctx.lineTo(x, y - gap);
+  ctx.stroke();
   // top-right
-  ctx.beginPath(); ctx.moveTo(x + w + gap, y); ctx.lineTo(x + w + gap + mark, y); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(x + w, y - gap - mark); ctx.lineTo(x + w, y - gap); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x + w + gap, y);
+  ctx.lineTo(x + w + gap + mark, y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x + w, y - gap - mark);
+  ctx.lineTo(x + w, y - gap);
+  ctx.stroke();
   // bottom-left
-  ctx.beginPath(); ctx.moveTo(x - gap - mark, y + h); ctx.lineTo(x - gap, y + h); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(x, y + h + gap); ctx.lineTo(x, y + h + gap + mark); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x - gap - mark, y + h);
+  ctx.lineTo(x - gap, y + h);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x, y + h + gap);
+  ctx.lineTo(x, y + h + gap + mark);
+  ctx.stroke();
   // bottom-right
-  ctx.beginPath(); ctx.moveTo(x + w + gap, y + h); ctx.lineTo(x + w + gap + mark, y + h); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(x + w, y + h + gap); ctx.lineTo(x + w, y + h + gap + mark); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x + w + gap, y + h);
+  ctx.lineTo(x + w + gap + mark, y + h);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x + w, y + h + gap);
+  ctx.lineTo(x + w, y + h + gap + mark);
+  ctx.stroke();
 }

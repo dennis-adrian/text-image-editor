@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useRef } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -23,10 +23,18 @@ export const GeneratedImagesList = React.memo(function GeneratedImagesList({
   totalCount,
   onDownloadSingle,
 }: GeneratedImagesListProps) {
-  const dataUrls = useMemo(
-    () => generatedImages.map((canvas) => canvas.toDataURL("image/png")),
-    [generatedImages],
+  const previewCacheRef = useRef<WeakMap<HTMLCanvasElement, string>>(
+    new WeakMap(),
   );
+  const dataUrls: string[] = [];
+  for (const canvas of generatedImages) {
+    let url = previewCacheRef.current.get(canvas);
+    if (url === undefined) {
+      url = canvas.toDataURL("image/png");
+      previewCacheRef.current.set(canvas, url);
+    }
+    dataUrls.push(url);
+  }
 
   if (generatedImages.length === 0 && !isGenerating) return null;
 
@@ -64,6 +72,8 @@ export const GeneratedImagesList = React.memo(function GeneratedImagesList({
                   size="sm"
                   variant="ghost"
                   className="h-6 w-6 p-0 shrink-0"
+                  aria-label={`Download image ${index + 1}`}
+                  title={`Download image ${index + 1}`}
                   onClick={() =>
                     onDownloadSingle(canvas, index, textArray[index])
                   }

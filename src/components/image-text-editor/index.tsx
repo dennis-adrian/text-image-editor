@@ -56,9 +56,7 @@ export function ImageTextEditor() {
   const [generatedTextArray, setGeneratedTextArray] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isZipping, setIsZipping] = useState(false);
-  const [collectionCount, setCollectionCount] = useState(
-    () => printStore.get().length,
-  );
+  const [collectionCount, setCollectionCount] = useState(0);
 
   // Persisted settings — use defaults for initial render (SSR + first client paint) to avoid hydration mismatch
   const [textInput, setTextInput] = useState(DEFAULT_SETTINGS.textInput);
@@ -89,6 +87,7 @@ export function ImageTextEditor() {
   // ── Hydrate from localStorage (client-only, after first paint to avoid hydration mismatch) ──
 
   useEffect(() => {
+    setCollectionCount(printStore.get().length);
     const stored = loadSettingsFromStorage();
     if (!stored) return;
     if (stored.textInput !== undefined) {
