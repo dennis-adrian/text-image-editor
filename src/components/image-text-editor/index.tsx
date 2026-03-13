@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,7 +10,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Upload, DownloadCloud, Loader2, Images, Printer } from "lucide-react";
+import {
+  Upload,
+  DownloadCloud,
+  Loader2,
+  Images,
+  Printer,
+  BookmarkPlus,
+} from "lucide-react";
 import { printStore } from "@/lib/print-store";
 import {
   drawTextInBox,
@@ -49,6 +56,9 @@ export function ImageTextEditor() {
   const [generatedTextArray, setGeneratedTextArray] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isZipping, setIsZipping] = useState(false);
+  const [collectionCount, setCollectionCount] = useState(
+    () => printStore.get().length,
+  );
 
   // Persisted settings — use defaults for initial render (SSR + first client paint) to avoid hydration mismatch
   const [textInput, setTextInput] = useState(DEFAULT_SETTINGS.textInput);
@@ -75,7 +85,6 @@ export function ImageTextEditor() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const generationIdRef = useRef(0);
-  const router = useRouter();
 
   // ── Hydrate from localStorage (client-only, after first paint to avoid hydration mismatch) ──
 
@@ -253,12 +262,6 @@ export function ImageTextEditor() {
       if (chunkIndex < textsToGenerate.length) {
         setTimeout(processChunk, 0); // yield to main thread
       } else {
-        printStore.set(
-          accumulated.map((canvas, i) => ({
-            dataUrl: canvas.toDataURL("image/png"),
-            label: textsToGenerate[i] ?? "",
-          })),
-        );
         setIsGenerating(false);
       }
     };
@@ -294,14 +297,19 @@ export function ImageTextEditor() {
     [],
   );
 
-  const handlePrintLayout = useCallback(async () => {
+  const handleAddToCollection = useCallback(() => {
     const printImages = generatedImages.map((canvas, i) => ({
       dataUrl: canvas.toDataURL("image/png"),
       label: generatedTextArray[i] ?? "",
     }));
-    printStore.set(printImages);
-    router.push("/print");
-  }, [generatedImages, generatedTextArray, router]);
+    printStore.add(printImages);
+    setCollectionCount(printStore.get().length);
+  }, [generatedImages, generatedTextArray]);
+
+  const handleClearCollection = useCallback(() => {
+    printStore.clear();
+    setCollectionCount(0);
+  }, []);
 
   const handleDownloadAll = async () => {
     if (isZipping || generatedImages.length === 0) return;
@@ -430,13 +438,13 @@ export function ImageTextEditor() {
 
           {generatedImages.length > 0 && !isGenerating && (
             <Button
-              onClick={handlePrintLayout}
+              onClick={handleAddToCollection}
               variant="outline"
               className="w-full"
               size="lg"
             >
-              <Printer className="w-4 h-4 mr-2" />
-              Print Layout ({generatedImages.length} images)
+              <BookmarkPlus className="w-4 h-4 mr-2" />
+              Add to Print Collection ({generatedImages.length} images)
             </Button>
           )}
 
@@ -459,6 +467,30 @@ export function ImageTextEditor() {
                 </>
               )}
             </Button>
+          )}
+
+          {collectionCount > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
+                <span className="flex items-center gap-1.5">
+                  <Printer className="w-3.5 h-3.5" />
+                  Print collection:{" "}
+                  <strong className="text-foreground">
+                    {collectionCount}
+                  </strong>{" "}
+                  images
+                </span>
+                <button
+                  onClick={handleClearCollection}
+                  className="text-destructive hover:underline text-xs"
+                >
+                  Clear
+                </button>
+              </div>
+              <Button asChild className="w-full" size="lg">
+                <Link href="/print">Go to Print Layout →</Link>
+              </Button>
+            </div>
           )}
         </div>
 

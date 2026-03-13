@@ -6,6 +6,9 @@ export interface PrintImage {
 let store: PrintImage[] = [];
 
 export const printStore = {
+  add: (images: PrintImage[]) => {
+    store = [...store, ...images];
+  },
   set: (images: PrintImage[]) => {
     store = images;
   },
