@@ -52,6 +52,8 @@ interface TextSettingsCardProps {
   onImportCSV: (texts: string[]) => void;
   uploadedFonts: string[];
   onFontUpload: (name: string) => void;
+  copies: number;
+  onCopiesChange: (value: number) => void;
 }
 
 export function TextSettingsCard({
@@ -75,6 +77,8 @@ export function TextSettingsCard({
   onImportCSV,
   uploadedFonts,
   onFontUpload,
+  copies,
+  onCopiesChange,
 }: TextSettingsCardProps) {
   const csvInputRef = useRef<HTMLInputElement>(null);
   const fontInputRef = useRef<HTMLInputElement>(null);
@@ -231,8 +235,27 @@ export function TextSettingsCard({
             )}
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="copies">Copies per text</Label>
+            <Input
+              id="copies"
+              type="number"
+              min="1"
+              max="99"
+              step="1"
+              value={copies}
+              onChange={(e) => {
+                const n = Math.round(parseInt(e.target.value, 10));
+                if (!isNaN(n)) onCopiesChange(Math.max(1, Math.min(99, n)));
+              }}
+              className="border-2 w-24"
+            />
+          </div>
+
           <p className="text-sm text-muted-foreground">
-            {textCount} image{textCount !== 1 ? "s" : ""} will be generated
+            {textCount > 0
+              ? `${textCount * copies} image${textCount * copies !== 1 ? "s" : ""} will be generated`
+              : `${copies} plain image${copies !== 1 ? "s" : ""} will be generated`}
           </p>
         </div>
 

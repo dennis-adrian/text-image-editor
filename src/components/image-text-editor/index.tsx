@@ -81,6 +81,7 @@ export function ImageTextEditor() {
   const [textAlign, setTextAlign] = useState<TextAlign>(
     DEFAULT_SETTINGS.textAlign,
   );
+  const [copies, setCopies] = useState(DEFAULT_SETTINGS.copies);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const generationIdRef = useRef(0);
@@ -110,6 +111,7 @@ export function ImageTextEditor() {
     if (safeNum(stored.textBoxHeight)) setTextBoxHeight(stored.textBoxHeight);
     if (typeof stored.textColor === "string") setTextColor(stored.textColor);
     if (typeof stored.fontFamily === "string") setFontFamily(stored.fontFamily);
+    if (safeNum(stored.copies)) setCopies(Math.max(1, stored.copies));
     const validAligns: TextAlign[] = ["left", "center", "right"];
     if (
       typeof stored.textAlign === "string" &&
@@ -134,6 +136,7 @@ export function ImageTextEditor() {
           textColor,
           fontFamily,
           textAlign,
+          copies,
         } satisfies TextSettings),
       );
     } catch {
@@ -148,6 +151,7 @@ export function ImageTextEditor() {
     textColor,
     fontFamily,
     textAlign,
+    copies,
   ]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
@@ -207,11 +211,12 @@ export function ImageTextEditor() {
   // ── Generate images on button click ─────────────────────────────────────────
 
   const handleGenerate = useCallback(async () => {
-    if (!image || textArray.filter(Boolean).length === 0 || isGenerating)
-      return;
+    if (!image || isGenerating) return;
 
     // Snapshot the settings at the moment the button is clicked
-    const textsToGenerate = textArray.filter(Boolean);
+    const nonEmptyTexts = textArray.filter(Boolean);
+    const isPlainMode = nonEmptyTexts.length === 0;
+    const snapCopies = copies;
     const snap = {
       textX,
       textY,
@@ -221,6 +226,19 @@ export function ImageTextEditor() {
       fontFamily,
       textAlign,
     };
+
+    // Build expanded list: each text repeated `copies` times, or N plain copies
+    const expandedTexts: string[] = isPlainMode
+      ? Array(snapCopies).fill("")
+      : nonEmptyTexts.flatMap((t) => Array(snapCopies).fill(t));
+
+    const expandedLabels: string[] = isPlainMode
+      ? expandedTexts.map((_, i) => `Copy ${i + 1}`)
+      : nonEmptyTexts.flatMap((t) =>
+          Array.from({ length: snapCopies }, (_, ci) =>
+            snapCopies > 1 ? `${t} (${ci + 1}/${snapCopies})` : t,
+          ),
+        );
 
     const currentId = ++generationIdRef.current;
     setGeneratedImages([]);
@@ -235,7 +253,7 @@ export function ImageTextEditor() {
     const accumulated: HTMLCanvasElement[] = [];
 
     const processChunk = () => {
-      const slice = textsToGenerate.slice(chunkIndex, chunkIndex + CHUNK_SIZE);
+      const slice = expandedTexts.slice(chunkIndex, chunkIndex + CHUNK_SIZE);
 
       for (const text of slice) {
         const canvas = document.createElement("canvas");
@@ -246,23 +264,26 @@ export function ImageTextEditor() {
         canvas.height = image.height;
         ctx.drawImage(image, 0, 0);
 
-        const boxW = (snap.textBoxWidth / 100) * canvas.width;
-        const boxH = (snap.textBoxHeight / 100) * canvas.height;
-        const x = (snap.textX / 100) * canvas.width;
-        const y = (snap.textY / 100) * canvas.height;
+        if (text !== "") {
+          const boxW = (snap.textBoxWidth / 100) * canvas.width;
+          const boxH = (snap.textBoxHeight / 100) * canvas.height;
+          const x = (snap.textX / 100) * canvas.width;
+          const y = (snap.textY / 100) * canvas.height;
 
-        drawTextInBox(
-          ctx,
-          text,
-          x,
-          y,
-          boxW,
-          boxH,
-          false,
-          snap.fontFamily,
-          snap.textColor,
-          snap.textAlign,
-        );
+          drawTextInBox(
+            ctx,
+            text,
+            x,
+            y,
+            boxW,
+            boxH,
+            false,
+            snap.fontFamily,
+            snap.textColor,
+            snap.textAlign,
+          );
+        }
+
         accumulated.push(canvas);
       }
 
@@ -271,9 +292,9 @@ export function ImageTextEditor() {
       if (generationIdRef.current !== currentId) return; // superseded — drop results
 
       setGeneratedImages([...accumulated]);
-      setGeneratedTextArray(textsToGenerate.slice(0, accumulated.length));
+      setGeneratedTextArray(expandedLabels.slice(0, accumulated.length));
 
-      if (chunkIndex < textsToGenerate.length) {
+      if (chunkIndex < expandedTexts.length) {
         setTimeout(processChunk, 0); // yield to main thread
       } else {
         setIsGenerating(false);
@@ -284,6 +305,7 @@ export function ImageTextEditor() {
   }, [
     image,
     textArray,
+    copies,
     textX,
     textY,
     textBoxWidth,
@@ -372,7 +394,9 @@ export function ImageTextEditor() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
-  const readyToGenerate = !!image && textArray.filter(Boolean).length > 0;
+  const readyToGenerate = !!image && !isGenerating;
+  const nonEmptyCount = textArray.filter(Boolean).length;
+  const totalToGenerate = nonEmptyCount > 0 ? nonEmptyCount * copies : copies;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -426,7 +450,9 @@ export function ImageTextEditor() {
             textColor={textColor}
             fontFamily={fontFamily}
             textAlign={textAlign}
-            textCount={textArray.filter(Boolean).length}
+            textCount={nonEmptyCount}
+            copies={copies}
+            onCopiesChange={setCopies}
             onTextInputChange={handleTextInputChange}
             onXChange={handleXChange}
             onYChange={handleYChange}
@@ -442,7 +468,7 @@ export function ImageTextEditor() {
 
           <Button
             onClick={handleGenerate}
-            disabled={!readyToGenerate || isGenerating}
+            disabled={!readyToGenerate}
             className="w-full"
             size="lg"
           >
@@ -454,7 +480,7 @@ export function ImageTextEditor() {
             ) : (
               <>
                 <Images className="w-4 h-4 mr-2" />
-                Generate Images ({textArray.filter(Boolean).length})
+                Generate Images ({totalToGenerate})
               </>
             )}
           </Button>
@@ -551,7 +577,7 @@ export function ImageTextEditor() {
                       generatedImages={generatedImages}
                       textArray={generatedTextArray}
                       isGenerating={isGenerating}
-                      totalCount={textArray.filter(Boolean).length}
+                      totalCount={totalToGenerate}
                       onDownloadSingle={handleDownloadSingle}
                     />
                   )}

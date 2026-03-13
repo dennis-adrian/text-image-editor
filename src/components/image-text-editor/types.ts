@@ -9,6 +9,7 @@ export interface TextSettings {
   textColor: string;
   fontFamily: string;
   textAlign: TextAlign;
+  copies: number;
 }
 
 export const LOCAL_STORAGE_KEY = "image-text-editor-settings";
@@ -22,4 +23,5 @@ export const DEFAULT_SETTINGS: TextSettings = {
   textColor: "#55559D",
   fontFamily: "Reusco Display",
   textAlign: "center",
+  copies: 1,
 };
