@@ -56,6 +56,7 @@ export function ImageTextEditor() {
   const [generatedTextArray, setGeneratedTextArray] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isZipping, setIsZipping] = useState(false);
+  const [uploadedFonts, setUploadedFonts] = useState<string[]>([]);
   const [collectionCount, setCollectionCount] = useState(0);
 
   // Persisted settings — use defaults for initial render (SSR + first client paint) to avoid hydration mismatch
@@ -90,22 +91,32 @@ export function ImageTextEditor() {
     setCollectionCount(printStore.get().length);
     const stored = loadSettingsFromStorage();
     if (!stored) return;
-    if (stored.textInput !== undefined) {
+    if (typeof stored.textInput === "string") {
       setTextInput(stored.textInput);
       const lines = stored.textInput
         .split("\n")
         .map((l) => l.trim())
         .filter(Boolean);
       setTextArray(lines.length > 0 ? lines : [""]);
+    } else if (stored.textInput !== undefined) {
+      setTextInput("");
+      setTextArray([""]);
     }
-    if (stored.textX !== undefined) setTextX(stored.textX);
-    if (stored.textY !== undefined) setTextY(stored.textY);
-    if (stored.textBoxWidth !== undefined) setTextBoxWidth(stored.textBoxWidth);
-    if (stored.textBoxHeight !== undefined)
-      setTextBoxHeight(stored.textBoxHeight);
-    if (stored.textColor !== undefined) setTextColor(stored.textColor);
-    if (stored.fontFamily !== undefined) setFontFamily(stored.fontFamily);
-    if (stored.textAlign !== undefined) setTextAlign(stored.textAlign);
+    const safeNum = (v: unknown): v is number =>
+      typeof v === "number" && !Number.isNaN(v);
+    if (safeNum(stored.textX)) setTextX(stored.textX);
+    if (safeNum(stored.textY)) setTextY(stored.textY);
+    if (safeNum(stored.textBoxWidth)) setTextBoxWidth(stored.textBoxWidth);
+    if (safeNum(stored.textBoxHeight)) setTextBoxHeight(stored.textBoxHeight);
+    if (typeof stored.textColor === "string") setTextColor(stored.textColor);
+    if (typeof stored.fontFamily === "string") setFontFamily(stored.fontFamily);
+    const validAligns: TextAlign[] = ["left", "center", "right"];
+    if (
+      typeof stored.textAlign === "string" &&
+      validAligns.includes(stored.textAlign as TextAlign)
+    ) {
+      setTextAlign(stored.textAlign as TextAlign);
+    }
   }, []);
 
   // ── Persist settings to localStorage ───────────────────────────────────────
@@ -172,6 +183,10 @@ export function ImageTextEditor() {
     const joined = texts.join("\n");
     setTextInput(joined);
     setTextArray(texts);
+  }, []);
+
+  const handleFontUpload = useCallback((name: string) => {
+    setUploadedFonts((prev) => (prev.includes(name) ? prev : [...prev, name]));
   }, []);
 
   const handlePositionChange = useCallback((x: number, y: number) => {
@@ -335,6 +350,13 @@ export function ImageTextEditor() {
       );
 
       const content = await zip.generateAsync({ type: "blob" });
+
+      // Check if ZIP has any files
+      if (Object.keys(zip.files).length === 0) {
+        console.error("No images could be added to ZIP");
+        return;
+      }
+
       const url = URL.createObjectURL(content);
       const a = document.createElement("a");
       a.href = url;
@@ -414,6 +436,8 @@ export function ImageTextEditor() {
             onFontChange={setFontFamily}
             onAlignChange={setTextAlign}
             onImportCSV={handleImportCSV}
+            uploadedFonts={uploadedFonts}
+            onFontUpload={handleFontUpload}
           />
 
           <Button

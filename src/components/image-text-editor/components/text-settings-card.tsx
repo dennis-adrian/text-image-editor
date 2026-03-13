@@ -27,6 +27,7 @@ import {
   AlignCenter,
   AlignRight,
   FileText,
+  Upload,
 } from "lucide-react";
 import type { TextAlign } from "@/components/image-text-editor/types";
 
@@ -49,6 +50,8 @@ interface TextSettingsCardProps {
   onFontChange: (value: string) => void;
   onAlignChange: (value: TextAlign) => void;
   onImportCSV: (texts: string[]) => void;
+  uploadedFonts: string[];
+  onFontUpload: (name: string) => void;
 }
 
 export function TextSettingsCard({
@@ -70,12 +73,51 @@ export function TextSettingsCard({
   onFontChange,
   onAlignChange,
   onImportCSV,
+  uploadedFonts,
+  onFontUpload,
 }: TextSettingsCardProps) {
   const csvInputRef = useRef<HTMLInputElement>(null);
+  const fontInputRef = useRef<HTMLInputElement>(null);
+  const [fontError, setFontError] = useState("");
   const [csvColumns, setCsvColumns] = useState<string[]>([]);
   const [csvData, setCsvData] = useState<Record<string, string>[]>([]);
   const [selectedColumn, setSelectedColumn] = useState("");
   const [csvError, setCsvError] = useState("");
+
+  const BUILTIN_FONTS = [
+    "Arial",
+    "Georgia",
+    "Times New Roman",
+    "Courier New",
+    "Verdana",
+    "Impact",
+    "Chau Philomene One",
+    "Reusco Display",
+  ];
+
+  const handleFontFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFontError("");
+    try {
+      const name = file.name.replace(/\.[^.]+$/, "");
+      if (BUILTIN_FONTS.includes(name) || uploadedFonts.includes(name)) {
+        setFontError(`Font "${name}" already exists.`);
+        return;
+      }
+      const buffer = await file.arrayBuffer();
+      const face = new FontFace(name, buffer);
+      await face.load();
+      document.fonts.add(face);
+      onFontUpload(name);
+      onFontChange(name);
+    } catch {
+      setFontError("Failed to load font. Make sure it's a valid font file.");
+    }
+    e.target.value = "";
+  };
 
   const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -284,6 +326,7 @@ export function TextSettingsCard({
               size="sm"
               onClick={() => onAlignChange("left")}
               className="flex-1"
+              aria-pressed={textAlign === "left"}
             >
               <AlignLeft className="w-4 h-4 mr-2" />
               Left
@@ -293,6 +336,7 @@ export function TextSettingsCard({
               size="sm"
               onClick={() => onAlignChange("center")}
               className="flex-1"
+              aria-pressed={textAlign === "center"}
             >
               <AlignCenter className="w-4 h-4 mr-2" />
               Center
@@ -302,6 +346,7 @@ export function TextSettingsCard({
               size="sm"
               onClick={() => onAlignChange("right")}
               className="flex-1"
+              aria-pressed={textAlign === "right"}
             >
               <AlignRight className="w-4 h-4 mr-2" />
               Right
@@ -326,8 +371,30 @@ export function TextSettingsCard({
                 Chau Philomene One
               </SelectItem>
               <SelectItem value="Reusco Display">Reusco Display</SelectItem>
+              {uploadedFonts.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
+
+          <input
+            ref={fontInputRef}
+            type="file"
+            accept=".ttf,.otf,.woff,.woff2"
+            onChange={handleFontFileChange}
+            className="hidden"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fontInputRef.current?.click()}
+          >
+            <Upload className="w-3 h-3 mr-1" />
+            Upload font
+          </Button>
+          {fontError && <p className="text-sm text-destructive">{fontError}</p>}
         </div>
 
         <div className="space-y-2">

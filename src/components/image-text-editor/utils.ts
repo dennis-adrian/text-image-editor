@@ -91,7 +91,9 @@ export const calculateOptimalFontSize = (
     const lineHeight = fontSize * 1.2;
     const totalHeight = lines.length * lineHeight;
 
-    const maxLineWidth = Math.max(...lines.map((l) => ctx.measureText(l).width));
+    const maxLineWidth = Math.max(
+      ...lines.map((l) => ctx.measureText(l).width),
+    );
     if (totalHeight <= maxHeight && maxLineWidth <= maxWidth) {
       return { fontSize, lines };
     }
@@ -104,10 +106,11 @@ export const calculateOptimalFontSize = (
 };
 
 export function sanitizeFilename(text: string): string {
-  return text
+  const sanitized = text
     .replace(/[/\\:*?"<>|]/g, "_")
     .substring(0, 50)
     .trim();
+  return sanitized || "untitled";
 }
 
 export const drawTextInBox = (
