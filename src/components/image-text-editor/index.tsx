@@ -335,7 +335,7 @@ export function ImageTextEditor() {
 
   const handleAddToCollection = useCallback(() => {
     const printImages = generatedImages.map((canvas, i) => ({
-      dataUrl: canvas.toDataURL("image/png"),
+      dataUrl: canvas.toDataURL("image/jpeg", 0.92),
       label: generatedTextArray[i] ?? "",
     }));
     printStore.add(printImages);

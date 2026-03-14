@@ -95,7 +95,15 @@ export function PrintLayout({ images }: PrintLayoutProps) {
         }
       }
 
-      pdf.save("print-layout.pdf");
+      const blob = pdf.output("blob");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "print-layout.pdf";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } finally {
       setIsExporting(false);
     }
@@ -503,7 +511,8 @@ async function placeImage(
   fitMode: FitMode,
 ): Promise<void> {
   if (fitMode === "stretch") {
-    pdf.addImage(dataUrl, "PNG", x, y, boxW, boxH);
+    const format = dataUrl.startsWith("data:image/jpeg") ? "JPEG" : "PNG";
+    pdf.addImage(dataUrl, format, x, y, boxW, boxH);
     return;
   }
 
@@ -525,7 +534,8 @@ async function placeImage(
           renderW = boxH * aspect;
           ox = (boxW - renderW) / 2;
         }
-        pdf.addImage(dataUrl, "PNG", x + ox, y + oy, renderW, renderH);
+        const format = dataUrl.startsWith("data:image/jpeg") ? "JPEG" : "PNG";
+        pdf.addImage(dataUrl, format, x + ox, y + oy, renderW, renderH);
       } else {
         // crop: create off-screen canvas at 150 DPI
         const dpi = 150;
@@ -537,7 +547,8 @@ async function placeImage(
         const ctx = canvas.getContext("2d");
         if (!ctx) {
           // Fallback to stretch if canvas context unavailable
-          pdf.addImage(dataUrl, "PNG", x, y, boxW, boxH);
+          const fmt = dataUrl.startsWith("data:image/jpeg") ? "JPEG" : "PNG";
+          pdf.addImage(dataUrl, fmt, x, y, boxW, boxH);
           resolve();
           return;
         }
